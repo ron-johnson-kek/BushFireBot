@@ -38,6 +38,8 @@ client.on("close", (error) => {
   }
 });
 
+const trusted = ['ron__johnson_'];
+
 //Method to get Active Fires data and write to file as JSON
 const activefiresURL = 'https://cwfis.cfs.nrcan.gc.ca/downloads/activefires/activefires.csv';
 
@@ -89,7 +91,11 @@ client.on("PRIVMSG", async (msg, channelName, self) => {
     client.say(msg.channelName, 'Here is the link to GitHub repo for my code :) https://github.com/ron-johnson-kek/bushfirebot')
   }
 
-  if (isCommand(cleanMessage, 'quit')) {
+  if (isCommand(cleanMessage, 'commands')) {
+    client.say(msg.channelName, 'A full list of my commands can be found here! https://github.com/ron-johnson-kek/BushFireBot/blob/master/commands.md')
+  }
+
+  if (trusted.includes(msg.displayName) && isCommand(cleanMessage, 'quit')) {
     client.say(msg.channelName, errlolwut)
   }
 });
@@ -111,8 +117,8 @@ client.on("PRIVMSG", async (msg, channelName, self) => {
     });
     
   }
-
-  if (isCommand(cleanMessage, 'hotspots')) {
+//wip
+  if (trusted.includes(msg.displayName) && isCommand(cleanMessage, 'hotspots')) {
     hotspotData.forEach(Element => {
       if (Element["fwi"] >= 50 && Element["fwi"] <= 100) {
       client.say(msg.channelName, `Hotspot located at ${Element["lat"]}, ${Element["lon"]} has crown fire potential monkaOMEGA (that means it burns the entire tree)`);
