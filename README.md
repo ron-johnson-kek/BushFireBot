@@ -6,7 +6,7 @@ The idea and motivation for this bot came a couple years ago while I was living 
 
 These two experiences combined with my recent intrest in twitch and coding have inspired me to try my best at creating a twitch chat bot that can relay accurate and helpful information to users who may be affected by wildfires. 
 
-As of Summer 2021 I will be working on making the bot relay wildfire information specifically in Canada. 
+As of Summer 2022 I will be working on making the bot usable in everyday twitch chat. 
 
 ## Code
 I am extremely new to coding with Javascript and most of my experience is from writing my first twich chat bot, ron__bot, in the last couple months. Tha being said feel free to see what I have done with this bot and to suggest how I might do things better. Again I am a noob with this stuff.
