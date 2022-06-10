@@ -2,14 +2,12 @@ const FileSystem = require("fs");
 const fetch = require('node-fetch');
 const Papa = require('papaparse');
 const { stringify } = require("querystring");
-const configFilePath = 'config1.json';
 const blankchar = '󠀀';
 const { ChatClient } = require("dank-twitch-irc");
 const { resourceLimits } = require("worker_threads");
+const startTimeStamp = Date.now();
 
-let username = '';
-let password = '';
-
+//Config Access
 try {
   let configData = readDataJson(configFilePath);
   username = configData["username"];
@@ -19,72 +17,54 @@ try {
   console.log("Error, could not read config/channels file. Quitting");
   process.exit(1);
 }
+let username = '';
+let password = '';
 
+//Client Access
 let client = new ChatClient({
   username: username,
   password: password,
   rateLimits: "default",
 });
-
 client.on("connecting", () => { console.log("Connecting") });
 client.connect();
 client.join('ron__johnson_');
-
 client.on("ready", () => console.log("Successfully connected to chat"));
-
 client.on("close", (error) => {
   if (error != null) {
     console.error("Client closed due to error", error);
   }
 });
 
+//Global Variables
 const trusted = ['ron__johnson_'];
 
-//Method to get Active Fires data and write to file as JSON
+//URL's
 const activefiresURL = 'https://cwfis.cfs.nrcan.gc.ca/downloads/activefires/activefires.csv';
-
-getCSV(activefiresURL, 'ActiveData');
-
-//Active Fires Message Stuff
-const activeFilepath = 'ActiveData.json';
-
-try {
-  const ActiveJSONData = FileSystem.readFileSync(activeFilepath, 'utf-8');
-  const activeData = JSON.parse(ActiveJSONData).data;
-  const province = activeData
-} catch (err) {
-  console.error(typeof err + " " + err.message);
-  console.error(err);
-  console.log("Error, could not read Hotspot file. Quitting");
-  process.exit(1);
-}
-
-//Method to get Hotspot data and write to file as JSON
-//Need Way to Update and Refresh hsdata
 const hotspotURL = 'https://cwfis.cfs.nrcan.gc.ca/downloads/hotspots/hotspots.csv';
-
+//Filepaths
+const configFilePath = 'config1.json';
+const activeFilepath = 'ActiveData.json';
+const userdataFilepath = 'userdata.json';
+const hotspotFilepath = 'HotSpotData.json';
+//getCSV's
+getCSV(activefiresURL, 'ActiveData');
 getCSV(hotspotURL, 'HotspotData');
 
-//Hotspot Message stuff
-const hotspotFilepath = 'HotSpotData.json';
-try {
-  const hsjsondata = FileSystem.readFileSync(hotspotFilepath, 'utf-8')
-  const hotspotData = JSON.parse(hsjsondata).data;
-} catch (err) {
-  console.error(typeof err + " " + err.message);
-  console.error(err);
-  console.log("Error, could not read Hotspot file. Quitting");
-  process.exit(1);
-}
-
-//Primary
+//Primary Commands
 client.on("PRIVMSG", async (msg, channelName, self) => {
   console.log(`[#${msg.channelName}] ${msg.displayName}: ${msg.messageText}`);
   
   let cleanMessage = msg.messageText.replace(blankchar, '').trim();
 
   if (isCommand(cleanMessage, 'ping')) {
-		client.say(msg.channelName,'pong');
+    let timeSeconds = (Date.now() - startTimeStamp) / 1000;
+		client.say(msg.channelName,`@${msg.displayName}, Pong! 👋 FeelsDankMan running for ${timeSeconds.toFixed(2)}s`);
+  }
+
+  if (isCommand(cleanMessage, 'uptime')) {
+    let timeSeconds = (Date.now() - startTimeStamp) / 1000;
+		client.say(msg.channelName,`@${msg.displayName}, 👋 FeelsDankMan running for ${timeSeconds.toFixed(2)}s`);
   }
 
   if (isCommand(cleanMessage, 'code')) {
@@ -100,12 +80,13 @@ client.on("PRIVMSG", async (msg, channelName, self) => {
   }
 });
 
-//Secondary
+//Secondary Commands
 client.on("PRIVMSG", async (msg, channelName, self) => {
   let cleanMessage = msg.messageText.replace(blankchar, '').trim();
   
   let hotspotData = readDataJson2(hotspotFilepath);
   let activeData = readDataJson2(activeFilepath);
+  let userdata = readDataJson2(userdataFilepath);
 
   const usernameList = [];
 
@@ -126,8 +107,21 @@ client.on("PRIVMSG", async (msg, channelName, self) => {
     })
       
   }
+//wip
+  if (trusted.includes(msg.displayName) && isCommand(cleanMessage, 'addUser')) {
+    
+    FileSystem.writeFile(`./userdata.json`, username, err => {
+      if(err){
+        console.log("Error writing file" ,err)
+      } else {
+        console.log('JSON data is written to the userdata file successfully')
+      }
+    })
+  }
+
 });
 
+//Functions
 function isCommand(msg, command) {
   const prefix = '#';
   return msg.startsWith(prefix + command)
