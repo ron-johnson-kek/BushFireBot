@@ -9,8 +9,8 @@ const startTimeStamp = Date.now();
 //Filepaths
 const configFilePath = 'config1.json';
 const activeFilepath = 'ActiveData.json';
-const userdataFilepath = 'userdata.json';
 const hotspotFilepath = 'HotSpotData.json';
+const subscribersFilepath = 'subscribers.json';
 //Config Access
 let username = '';
 let password = '';
@@ -22,6 +22,14 @@ try {
   console.error(typeof err + " " + err.message);
   console.log("Error, could not read config/channels file. Quitting");
   process.exit(1);
+}
+//Define and Load the subscribers data
+let subscribers = {};
+try {
+  subscribers = readDataJson(subscribersFilepath);
+} catch (err) {
+  //If the file does not exist, create an empty subscribers object
+  subscribers = {};
 }
 
 //Client Access
@@ -41,8 +49,8 @@ client.on("close", (error) => {
 });
 
 //Global Variables
-const trusted = ['ron__johnson_'];
-const usernameList = {"data": []};
+const trusted = ['ron__johnson_', 'ron__bot'];
+const usernameList = [];
 //URL's
 const activefiresURL = 'https://cwfis.cfs.nrcan.gc.ca/downloads/activefires/activefires.csv';
 const hotspotURL = 'https://cwfis.cfs.nrcan.gc.ca/downloads/hotspots/hotspots.csv';
@@ -53,83 +61,107 @@ getCSV(hotspotURL, 'HotspotData');
 //Primary Commands
 client.on("PRIVMSG", async (msg, channelName, self) => {
   console.log(`[#${msg.channelName}] ${msg.displayName}: ${msg.messageText}`);
-  
   let cleanMessage = msg.messageText.replace(blankchar, '').trim();
+  let timeSeconds = (Date.now() - startTimeStamp) / 1000;
 
-  if (isCommand(cleanMessage, 'ping')) {
-    let timeSeconds = (Date.now() - startTimeStamp) / 1000;
-		client.say(msg.channelName,`@${msg.displayName}, Pong! 👋 FeelsDankMan running for ${timeSeconds.toFixed(2)}s`);
+  if (cleanMessage[0] !== '#') {
+    return;
   }
 
-  if (isCommand(cleanMessage, 'uptime')) {
-    let timeSeconds = (Date.now() - startTimeStamp) / 1000;
-		client.say(msg.channelName,`@${msg.displayName}, 👋 FeelsDankMan running for ${timeSeconds.toFixed(2)}s`);
-  }
+  //Parse command and args
+  let [command, ...args] = cleanMessage.slice(1).split(" ");
 
-  if (isCommand(cleanMessage, 'code')) {
-    client.say(msg.channelName, 'Here is the link to GitHub repo for my code :) https://github.com/ron-johnson-kek/bushfirebot')
-  }
+  switch(command) {
+    case 'ping':  
+		  client.say(msg.channelName,`@${msg.displayName}, Pong! 👋 FeelsDankMan running for ${timeSeconds.toFixed(2)}s`);
+      console.log('ping')
+      break;
 
-  if (isCommand(cleanMessage, 'commands')) {
-    client.say(msg.channelName, 'A full list of my commands can be found here! https://github.com/ron-johnson-kek/BushFireBot/blob/master/commands.md')
-  }
+    case 'uptime':
+		  client.say(msg.channelName,`@${msg.displayName}, 👋 FeelsDankMan running for ${timeSeconds.toFixed(2)}s`);
+      break;
 
-  if (trusted.includes(msg.displayName) && isCommand(cleanMessage, 'quit')) {
-    client.say(msg.channelName, errlolwut)
+    case 'code':
+      client.say(msg.channelName, 'Here is the link to GitHub repo for my code :) https://github.com/ron-johnson-kek/bushfirebot')
+      break;
+
+    case 'commands':
+      client.say(msg.channelName, 'A full list of my commands can be found here! https://github.com/ron-johnson-kek/BushFireBot/blob/master/commands.md')
+      break;
+
+    case 'quit':
+      if(trusted.includes(msg.displayName)) {
+        process.exit();
+      }
+      break;
   }
-});
 
 //Secondary Commands
-client.on("PRIVMSG", async (msg, channelName, self) => {
-  let cleanMessage = msg.messageText.replace(blankchar, '').trim();
-  
+
   let hotspotData = readDataJson2(hotspotFilepath);
   let activeData = readDataJson2(activeFilepath);
-  //let userdata = readDataJson2(userdataFilepath);
   let numactivefires = Object.keys(activeData).length;
 
-  if (isCommand(cleanMessage, 'fireforecast')) {
-    let usercountry = cleanMessage.substring(14);
-    let cleanusercountry = usercountry.toLowerCase();
-    client.say(msg.channelName, `${getCountry(cleanusercountry)}`)
-  }
-  if (isCommand(cleanMessage, 'activefires')) {
-    client.say(msg.channelName, `${rateNumactivefires(numactivefires)}`)
-  }
-  if (isCommand(cleanMessage, 'bigfires')) {
-    activeData.forEach(Element => {
-      if (Element[" hectares"] > 10000) {
-      client.say(msg.channelName, `${Element[" firename"]} in ${Element.agency} is over 10000 ha currently at ${Element[" hectares"]} ha monkaS https://earth.google.com/web/search/${Element[" lat"]},+${Element[" lon"]}/`)
+  switch (command) {
+    case 'fireforecast':
+      let usercountry = cleanMessage.substring(14);
+      client.say(msg.channelName, `${getCountry(usercountry)}`)
+      break;
+    
+    case 'activefires':
+      client.say(msg.channelName, `${rateNumactivefires(numactivefires)}`)
+      break;
+    
+    case 'bigfires':
+      activeData.forEach(Element => {
+        if (Element[" hectares"] > 10000) {
+        client.say(msg.channelName, `${Element[" firename"]} in ${Element.agency} is over 10000 ha currently at ${Element[" hectares"]} ha monkaS https://earth.google.com/web/search/${Element[" lat"]},+${Element[" lon"]}/`)
+        }
+      });
+      break;
+    //wip
+    case 'hotspots':
+      if (trusted.includes(msg.displayName)) {
+        hotspotData.forEach(Element => {
+        if (Element["fwi"] >= 100 && Element["fwi"] <= 150) {
+          client.say(msg.channelName, `Hotspot located at ${Element["lat"]}, ${Element["lon"]} has crown fire potential monkaOMEGA (that means it burns the entire tree)`);
+          }
+        })
       }
-    });
-  }
-//wip
-  if (trusted.includes(msg.displayName) && isCommand(cleanMessage, 'hotspots')) {
-    hotspotData.forEach(Element => {
-      if (Element["fwi"] >= 50 && Element["fwi"] <= 100) {
-      client.say(msg.channelName, `Hotspot located at ${Element["lat"]}, ${Element["lon"]} has crown fire potential monkaOMEGA (that means it burns the entire tree)`);
-      }
-    })
-  }
-//wip
-  if (trusted.includes(msg.displayName) && isCommand(cleanMessage, 'addUser')) {
-    //const usernamePush = usernameList["data"].push(`{"${msg.displayName}"}`);
-    FileSystem.writeFile(`./userdata.json`, usernamePush, err => {
-      if(err){
-        console.log("Error writing file" ,err)
+      break;
+  
+    case 'subscribe':
+      // Add the user to the list of subscribers
+      if (!subscribers[msg.displayName]) {
+        subscribers[msg.displayName] = true;
+        client.say(msg.channelName, `@${msg.displayName}, you have been added to the list of subscribers.`);
       } else {
-        console.log('JSON data is written to the userdata file successfully')
+        client.say(msg.channelName, `@${msg.displayName}, you are already on the list of subscribers.`);
       }
-    })
-  }
 
+      // Save the updated subscribers list to the file
+      writeDataJson(subscribersFilepath, subscribers);
+      break;
+    
+    case 'set':
+      // Check if the user is a subscriber
+      if (subscribers[msg.displayName]) {
+      // Update the user's subscription with the given location
+      subscribers[msg.displayName] = args[0];
+
+      // Confirm the update
+      client.say(msg.channelName, `@${msg.displayName}, your subscription has been updated with location: ${args[0]}.`);
+
+      // Save the updated subscribers list to the file
+      writeDataJson(subscribersFilepath, subscribers);
+      } else {
+      client.say(msg.channelName, `@${msg.displayName}, you are not currently a subscriber. Use the '#subscribe' command to subscribe.`);
+      }
+      break;
+  }
 });
 
 //Functions
-function isCommand(msg, command) {
-  const prefix = '#';
-  return msg.startsWith(prefix + command)
-} 
 
 function readDataJson(filePath) {
   let data = FileSystem.readFileSync(filePath, 'utf8');
@@ -141,8 +173,19 @@ function readDataJson2(filePath) {
   return JSON.parse(jsondata).data;
 }
 
+function writeDataJson(filepath, data) {
+  // Convert the data to a JSON string
+  const dataString = JSON.stringify(data, {
+    encoding: 'utf8',
+    spaces: 2
+  });
+
+  // Write the JSON string to the file
+  FileSystem.writeFileSync(filepath, dataString);
+}
+
 function getCSV(csvURL, filename) {
-  const response = fetch(csvURL)
+  const response = fetch(csvURL) 
    .then(response => response.text())
    .then(data => Papa.parse(data, {
        header: true,
@@ -174,8 +217,10 @@ function rateNumactivefires(num) {
 function getCountry(country) {
   let thisMonth = new Date();
   let date = (thisMonth.getMonth()+1);
+  country = country.toLowerCase();
   return country === 'canada'? `Here is the seasonal forecast for Canada, updated monthly FeelsOkayMan https://cwfis.cfs.nrcan.gc.ca/data/maps/seasonal_forecast/2022/fsr0${date}.png`
-  : country === 'usa' || country === 'united states' ? 'Here is the seasonal forecast for the USA'
+  : country === 'usa' || country === 'united states' || country === 'us' ? 'Here is a daily forecast for the contiguous USA FeelsOkayMan http://www.wfas.net/images/firedanger/fd_cls_f.png'
+  : country === 'australia' || country === 'aussie' ? 'Here is your seasonal outlook KKrikey 👍 https://www.afac.com.au/docs/default-source/bushfire-seasonal-outlook/seasonaloutlook_autumn_2022_v1-0.pdf' 
   : country === 'uk' || country === 'united kingdom' ? 'Here is the seasonal forecast for the UK'
   : 'Unfortunately I currently do not support the country provided Sadeg'
 }
