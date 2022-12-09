@@ -1,3 +1,4 @@
+console.time('Total time');
 const FileSystem = require("fs");
 const fetch = require('node-fetch');
 const Papa = require('papaparse');
@@ -31,6 +32,14 @@ try {
   //If the file does not exist, create an empty subscribers object
   subscribers = {};
 }
+
+// Handle potential issues that may cause the script to crash or behave unexpectedly
+process.on('warning', (warning) => {
+  console.warn(warning.name);    // Print the warning name
+  console.warn(warning.message); // Print the warning message
+  console.warn(warning.stack);   // Print the stack track
+  // Do something to handle the warning, such as logging the warning
+});
 
 //Client Access
 let client = new ChatClient({
@@ -73,20 +82,20 @@ client.on("PRIVMSG", async (msg, channelName, self) => {
 
   switch(command) {
     case 'ping':  
-		  client.say(msg.channelName,`@${msg.displayName}, Pong! 👋 FeelsDankMan running for ${timeSeconds.toFixed(2)}s`);
+		  await client.say(msg.channelName,`@${msg.displayName}, Pong! 👋 FeelsDankMan running for ${timeSeconds.toFixed(2)}s`);
       console.log('ping')
       break;
 
     case 'uptime':
-		  client.say(msg.channelName,`@${msg.displayName}, 👋 FeelsDankMan running for ${timeSeconds.toFixed(2)}s`);
+		  await client.say(msg.channelName,`@${msg.displayName}, 👋 FeelsDankMan running for ${timeSeconds.toFixed(2)}s`);
       break;
 
     case 'code':
-      client.say(msg.channelName, 'Here is the link to GitHub repo for my code :) https://github.com/ron-johnson-kek/bushfirebot')
+      await client.say(msg.channelName, 'Here is the link to GitHub repo for my code :) https://github.com/ron-johnson-kek/bushfirebot')
       break;
 
     case 'commands':
-      client.say(msg.channelName, 'A full list of my commands can be found here! https://github.com/ron-johnson-kek/BushFireBot/blob/master/commands.md')
+      await client.say(msg.channelName, 'A full list of my commands can be found here! https://github.com/ron-johnson-kek/BushFireBot/blob/master/commands.md')
       break;
 
     case 'quit':
@@ -105,15 +114,15 @@ client.on("PRIVMSG", async (msg, channelName, self) => {
   switch (command) {
     case 'fireforecast':
       let usercountry = cleanMessage.substring(14);
-      client.say(msg.channelName, `${getCountry(usercountry)}`)
+      await client.say(msg.channelName, `${getCountry(usercountry)}`)
       break;
     
     case 'activefires':
-      client.say(msg.channelName, `${rateNumactivefires(numactivefires)}`)
+      await client.say(msg.channelName, `${rateNumactivefires(numactivefires)}`)
       break;
     
     case 'bigfires':
-      activeData.forEach(Element => {
+      await activeData.forEach(Element => {
         if (Element[" hectares"] > 10000) {
         client.say(msg.channelName, `${Element[" firename"]} in ${Element.agency} is over 10000 ha currently at ${Element[" hectares"]} ha monkaS https://earth.google.com/web/search/${Element[" lat"]},+${Element[" lon"]}/`)
         }
@@ -122,7 +131,7 @@ client.on("PRIVMSG", async (msg, channelName, self) => {
     //wip
     case 'hotspots':
       if (trusted.includes(msg.displayName)) {
-        hotspotData.forEach(Element => {
+        await hotspotData.forEach(Element => {
         if (Element["fwi"] >= 100 && Element["fwi"] <= 150) {
           client.say(msg.channelName, `Hotspot located at ${Element["lat"]}, ${Element["lon"]} has crown fire potential monkaOMEGA (that means it burns the entire tree)`);
           }
@@ -134,9 +143,9 @@ client.on("PRIVMSG", async (msg, channelName, self) => {
       // Add the user to the list of subscribers
       if (!subscribers[msg.displayName]) {
         subscribers[msg.displayName] = true;
-        client.say(msg.channelName, `@${msg.displayName}, you have been added to the list of subscribers.`);
+        await client.say(msg.channelName, `@${msg.displayName}, you have been added to the list of subscribers PagMan`);
       } else {
-        client.say(msg.channelName, `@${msg.displayName}, you are already on the list of subscribers.`);
+        await client.say(msg.channelName, `@${msg.displayName}, you are already on the list of subscribers ForsenLookingAtYou`);
       }
 
       // Save the updated subscribers list to the file
@@ -147,15 +156,28 @@ client.on("PRIVMSG", async (msg, channelName, self) => {
       // Check if the user is a subscriber
       if (subscribers[msg.displayName]) {
       // Update the user's subscription with the given location
-      subscribers[msg.displayName] = args[0];
+      if (args.length !== 1) {
+        await client.say(msg.channelName, `@${msg.displayName}, please specify your location. For example: #set Australia`);
+        break;
+      }
+      // Get the subscriber's location from the args
+      const location = args[0].toLowerCase();
 
-      // Confirm the update
-      client.say(msg.channelName, `@${msg.displayName}, your subscription has been updated with location: ${args[0]}.`);
+      // Check if the location is allowed
+      const allowedLocations = readAllowedLocations();
+      if (!allowedLocations.some((allowedLocation) => allowedLocation === location)) {
+        await client.say(msg.channelName, `@${msg.displayName}, sorry, that location is not allowed. Please choose from the following list of allowed locations: ${allowedLocations.join(', ')}`);
+        break;
+      }
+
+      subscribers[msg.displayName] = location;
 
       // Save the updated subscribers list to the file
       writeDataJson(subscribersFilepath, subscribers);
+      // Confirm the update
+      await client.say(msg.channelName, `@${msg.displayName}, your subscription has been updated with location: ${args[0]}.(Leaked LULW )`);
       } else {
-      client.say(msg.channelName, `@${msg.displayName}, you are not currently a subscriber. Use the '#subscribe' command to subscribe.`);
+      await client.say(msg.channelName, `@${msg.displayName}, you are not currently a subscriber. Use the '#subscribe' command to subscribe. FeelsOkayMan`);
       }
       break;
   }
@@ -182,6 +204,16 @@ function writeDataJson(filepath, data) {
 
   // Write the JSON string to the file
   FileSystem.writeFileSync(filepath, dataString);
+}
+
+function readAllowedLocations() {
+  // Read the allowedLocations.json file
+  const data = FileSystem.readFileSync('allowedLocations.json', 'utf8');
+
+  // Parse the data as JSON
+  const allowedLocations = JSON.parse(data);
+
+  return allowedLocations;
 }
 
 function getCSV(csvURL, filename) {
@@ -224,3 +256,4 @@ function getCountry(country) {
   : country === 'uk' || country === 'united kingdom' ? 'Here is the seasonal forecast for the UK'
   : 'Unfortunately I currently do not support the country provided Sadeg'
 }
+console.timeEnd('Total time');
